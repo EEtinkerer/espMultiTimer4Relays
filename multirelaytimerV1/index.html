@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timer Settings</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .container {
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .info-bar {
+      background-color: #2196F3;
+      color: white;
+      text-align: center;
+      padding: 10px 0;
+      display: none;
+    }
+    .timer {
+      padding: 20px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: 2px solid black;
+    }
+    .timer.lightgrey {
+      background-color: lightgrey;
+      border-color: black;
+    }
+    .timer.lightsalmon {
+      background-color: lightsalmon;
+      border-color: indianred;
+    }
+    .timer.palegreen {
+      background-color: palegreen;
+      border-color: limegreen;
+    }
+    .timer.khaki {
+      background-color: khaki;
+      border-color: goldenrod;
+    }
+    .timer label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .timer input[type="number"] {
+      width: 50px;
+      padding: 5px;
+      margin-right: 10px;
+    }
+    .timer input[type="checkbox"] {
+      margin-right: 10px;
+    }
+    .timer button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .timer button:hover {
+      background-color: #45a049;
+    }
+    .status {
+      font-weight: bold;
+    }
+  </style>
+  <script>
+    function loadSettings() {
+      fetch('/settings')
+        .then(response => response.json())
+        .then(data => {
+          for (let i = 1; i <= 3; i++) {
+            document.getElementById(`hourOn${i}`).value = data[`timer${i}`].hourOn.toString().padStart(2, '0');
+            document.getElementById(`minuteOn${i}`).value = data[`timer${i}`].minuteOn.toString().padStart(2, '0');
+            document.getElementById(`hourOff${i}`).value = data[`timer${i}`].hourOff.toString().padStart(2, '0');
+            document.getElementById(`minuteOff${i}`).value = data[`timer${i}`].minuteOff.toString().padStart(2, '0');
+            document.getElementById(`state${i}`).checked = data[`timer${i}`].state;
+            document.getElementById(`manual${i}`).checked = data[`manual${i}`];
+            document.getElementById(`status${i}`).textContent = data[`status${i}`];
+            updateTimerStyle(i, data[`timer${i}`].state, data[`status${i}`], data[`manual${i}`]);
+          }
+        });
+    }
+
+    function saveSettings(timerId) {
+      const hourOn = document.getElementById(`hourOn${timerId}`).value.padStart(2, '0');
+      const minuteOn = document.getElementById(`minuteOn${timerId}`).value.padStart(2, '0');
+      const hourOff = document.getElementById(`hourOff${timerId}`).value.padStart(2, '0');
+      const minuteOff = document.getElementById(`minuteOff${timerId}`).value.padStart(2, '0');
+      const state = document.getElementById(`state${timerId}`).checked;
+      fetch(`/get?timer=${timerId - 1}&hourOn=${hourOn}&minuteOn=${minuteOn}&hourOff=${hourOff}&minuteOff=${minuteOff}&state=${state}`)
+        .then(response => response.text())
+        .then(data => {
+          showInfoBar(data);
+          loadSettings();
+        });
+    }
+
+    function manualControl(relayId) {
+      const state = document.getElementById(`manual${relayId}`).checked;
+      fetch(`/get?manual=${relayId - 1}&state=${state}`)
+        .then(response => response.text())
+        .then(data => {
+          showInfoBar(state ? 'Manual Control On' : 'Manual Control Off');
+          loadSettings();
+        });
+    }
+
+    function showInfoBar(message) {
+      const infoBar = document.getElementById('info-bar');
+      infoBar.textContent = message;
+      infoBar.style.display = 'block';
+      setTimeout(() => { infoBar.style.display = 'none'; }, 3000);
+    }
+
+    function updateTimerStyle(timerId, enabled, status, manual) {
+      const timerDiv = document.getElementById(`timer${timerId}`);
+      timerDiv.classList.remove('lightgrey', 'lightsalmon', 'palegreen', 'khaki');
+      if (manual) {
+        timerDiv.classList.add('khaki');
+      } else if (!enabled) {
+        timerDiv.classList.add('lightgrey');
+      } else if (status === 'ON') {
+        timerDiv.classList.add('palegreen');
+      } else {
+        timerDiv.classList.add('lightsalmon');
+      }
+    }
+
+    function validateInput(event) {
+      const input = event.target;
+      const value = input.value.padStart(2, '0');
+      if (input.id.startsWith('hour')) {
+        if (value < 0 || value > 23) {
+          input.setCustomValidity('Hour must be between 0 and 23');
+        } else {
+          input.setCustomValidity('');
+        }
+      } else {
+        if (value < 0 || value > 59) {
+          input.setCustomValidity('Minute must be between 0 and 59');
+        } else {
+          input.setCustomValidity('');
+        }
+      }
+      input.value = value;
+    }
+
+    window.onload = () => {
+      loadSettings();
+      setInterval(loadSettings, 300000); // Auto refresh every 5 minutes
+    };
+  </script>
+</head>
+<body>
+  <div class="info-bar" id="info-bar"></div>
+  <div class="container">
+    <h1>Timer Settings</h1>
+    <div class="timer lightgrey" id="timer1">
+      <h2>Timer 1</h2>
+      <label for="hourOn1">Hour ON:</label>
+      <input type="number" id="hourOn1" min="0" max="23" maxlength="2" oninput="validateInput(event)">
+      <label for="minuteOn1">Minute ON:</label>
+      <input type="number" id="minuteOn1" min="0" max="59" maxlength="2" oninput="validateInput(event)"><br>
+      <label for="hourOff1">Hour OFF:</label>
+      <input type="number" id="hourOff1" min="0" max="23" maxlength="2" oninput="validateInput(event)">
+      <label for="minuteOff1">Minute OFF:</label>
+      <input type="number" id="minuteOff1" min="0" max="59" maxlength="2" oninput="validateInput(event)"><br>
+      <label for="state1">Enabled:</label>
+      <input type="checkbox" id="state1"><br>
+      <button onclick="saveSettings(1)">Save Timer 1</button>
+      <p>Status: <span class="status" id="status1">OFF</span></p>
+      <label for="manual1">Manual Control:</label>
+      <input type="checkbox" id="manual1" onclick="manualControl(1)">
+    </div>
+    <div class="timer lightgrey" id="timer2">
+      <h2>Timer 2</h2>
+      <label for="hourOn2">Hour ON:</label>
+      <input type="number" id="hourOn2" min="0" max="23" maxlength="2" oninput="validateInput(event)">
+      <label for="minuteOn2">Minute ON:</label>
+      <input type="number" id="minuteOn2" min="0" max="59" maxlength="2" oninput="validateInput(event)"><br>
+      <label for="hourOff2">Hour OFF:</label>
+      <input type="number" id="hourOff2" min="0" max="23" maxlength="2" oninput="validateInput(event)">
+      <label for="minuteOff2">Minute OFF:</label>
+      <input type="number" id="minuteOff2" min="0" max="59" maxlength="2" oninput="validateInput(event)"><br>
+      <label for="state2">Enabled:</label>
+      <input type="checkbox" id="state2"><br>
+      <button onclick="saveSettings(2)">Save Timer 2</button>
+      <p>Status: <span class="status" id="status2">OFF</span></p>
+      <label for="manual2">Manual Control:</label>
+      <input type="checkbox" id="manual2" onclick="manualControl(2)">
+    </div>
+    <div class="timer lightgrey" id="timer3">
+      <h2>Timer 3</h2>
+      <label for="hourOn3">Hour ON:</label>
+      <input type="number" id="hourOn3" min="0" max="23" maxlength="2" oninput="validateInput(event)">
+      <label for="minuteOn3">Minute ON:</label>
+      <input type="number" id="minuteOn3" min="0" max="59" maxlength="2" oninput="validateInput(event)"><br>
+      <label for="hourOff3">Hour OFF:</label>
+      <input type="number" id="hourOff3" min="0" max="23" maxlength="2" oninput="validateInput(event)">
+      <label for="minuteOff3">Minute OFF:</label>
+      <input type="number" id="minuteOff3" min="0" max="59" maxlength="2" oninput="validateInput(event)"><br>
+      <label for="state3">Enabled:</label>
+      <input type="checkbox" id="state3"><br>
+      <button onclick="saveSettings(3)">Save Timer 3</button>
+      <p>Status: <span class="status" id="status3">OFF</span></p>
+      <label for="manual3">Manual Control:</label>
+      <input type="checkbox" id="manual3" onclick="manualControl(3)">
+    </div>
+  </div>
+</body>
+</html>
